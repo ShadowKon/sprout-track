@@ -12,7 +12,8 @@ ARG DATABASE_PROVIDER=sqlite
 # - curl: healthcheck
 # - postgresql-client: pg_isready for PostgreSQL healthchecks
 # - python3 make g++: build tools for better-sqlite3 native module
-RUN apk add --no-cache tzdata openssl dcron curl postgresql-client \
+# - su-exec: drop from root to the node user once startup setup is done
+RUN apk add --no-cache tzdata openssl dcron curl postgresql-client su-exec \
     python3 make g++
 
 # Set working directory
@@ -114,7 +115,8 @@ RUN sed -i 's/\r$//' /usr/local/bin/docker-startup.sh && \
     ls -la /usr/local/bin/docker-startup.sh && \
     echo "Startup script copied and made executable"
 
-# Set entrypoint to run migrations before starting the app
+# Set entrypoint to run migrations before starting the app.
+# The entrypoint starts as root for setup, then runs the app as "node" via su-exec.
 ENTRYPOINT ["/usr/local/bin/docker-startup.sh"]
 
 # Start the application

@@ -177,5 +177,20 @@ else
   echo "Notifications are disabled (ENABLE_NOTIFICATIONS != true)"
 fi
 
+# Drop root before starting the app. Setup above (TZ, Prisma generate, crond)
+# needs root; the app itself runs as the unprivileged "node" user. Only paths
+# the app writes at runtime are handed over: the data volumes, the generated
+# Prisma clients and schema (backup restore regenerates them), the Next.js
+# cache, and /app itself (restore writes /app/.env.backup-*). find ! -user
+# keeps restarts fast on large photo volumes.
+if [ "$(id -u)" = "0" ]; then
+  for dir in /db /app/env /app/Files /app/logs /app/prisma /app/node_modules/.prisma /app/.next/cache; do
+    [ -d "$dir" ] && find "$dir" ! -user node -exec chown node:node {} +
+  done
+  chown node:node /app
+  echo "Starting application as user node..."
+  exec su-exec node "$@"
+fi
+
 echo "Starting application..."
 exec "$@"
