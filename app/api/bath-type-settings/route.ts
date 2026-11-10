@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import prisma from '../db';
 import { ApiResponse, BathTypeSettings } from '../types';
 import { withAuthContext, AuthResult } from '../utils/auth';
+import { lockedPinHash } from '../utils/pin-utils';
 
 async function handleGet(req: NextRequest, authContext: AuthResult): Promise<NextResponse<ApiResponse<BathTypeSettings>>> {
   try {
@@ -66,7 +67,7 @@ async function handlePost(req: NextRequest, authContext: AuthResult): Promise<Ne
         data: {
           familyId: userFamilyId,
           familyName: 'My Family',
-          securityPin: '111222',
+          securityPin: await lockedPinHash(), // placeholder until the user sets a PIN
           defaultBottleUnit: 'OZ',
           defaultSolidsUnit: 'TBSP',
           defaultHeightUnit: 'IN',

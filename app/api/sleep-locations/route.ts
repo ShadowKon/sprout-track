@@ -18,6 +18,7 @@ import {
   validateLocationRename,
   SleepLocationSettingsShape,
 } from '@/src/utils/sleepLocationUtils';
+import { lockedPinHash } from '../utils/pin-utils';
 
 type SettingsRecord = { id: string; sleepLocationSettings?: string | null } | null;
 
@@ -60,7 +61,7 @@ async function writeLocationSettings(
       data: {
         familyId,
         familyName: 'My Family',
-        securityPin: '111222',
+        securityPin: await lockedPinHash(), // placeholder until the user sets a PIN
         defaultBottleUnit: 'OZ',
         defaultSolidsUnit: 'TBSP',
         defaultHeightUnit: 'IN',

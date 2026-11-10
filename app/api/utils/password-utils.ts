@@ -129,3 +129,7 @@ export function verifyPasswordSync(password: string, hashedPassword: string): bo
     return false;
   }
 }
+/** Random admin password for first-boot bootstrap credentials (16 URL-safe chars). */
+export function generateAdminPassword(): string {
+  return crypto.randomBytes(12).toString('base64url');
+}

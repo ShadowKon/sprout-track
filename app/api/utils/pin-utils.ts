@@ -25,6 +25,20 @@ export function hashPin(pin: string): Promise<string> {
   return hashPassword(pin);
 }
 
+/** Random 6-digit PIN for first-boot bootstrap credentials. */
+export function generateLoginPin(): string {
+  return crypto.randomInt(0, 1_000_000).toString().padStart(6, '0');
+}
+
+/**
+ * Hash of a random secret no one knows. Used where a record needs a PIN before
+ * the user has chosen one (the setup wizard sets the real PIN), so the
+ * placeholder can never be used to log in.
+ */
+export function lockedPinHash(): Promise<string> {
+  return hashPin(crypto.randomBytes(32).toString('hex'));
+}
+
 /** Constant-time comparison for legacy plaintext PINs. */
 function plaintextEquals(a: string, b: string): boolean {
   const bufA = Buffer.from(a);

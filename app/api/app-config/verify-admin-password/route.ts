@@ -28,15 +28,15 @@ async function handler(
 
     const appConfig = await prisma.appConfig.findFirst();
 
-    // Resolve the current admin password (defaults to "admin" when unset)
-    let currentPass = 'admin';
+    // Resolve the current admin password. Unset never matches.
+    let currentPass = '';
     if (appConfig?.adminPass && appConfig.adminPass.trim() !== '') {
       currentPass = isEncrypted(appConfig.adminPass) ? decrypt(appConfig.adminPass) : appConfig.adminPass;
     }
 
     return NextResponse.json<ApiResponse<{ valid: boolean }>>({
       success: true,
-      data: { valid: password === currentPass },
+      data: { valid: !!currentPass && password === currentPass },
     });
   } catch (error) {
     console.error('Error verifying admin password:', error);

@@ -23,8 +23,7 @@ docker-compose up -d
 
 Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-- Default PIN: `111222`
-- Default admin password: `admin`
+- Initial PIN and /family-manager admin password: generated on first start and printed once in the container logs (`docker logs sprout-track`)
 
 On first access, the Setup Wizard will guide you through initial configuration.
 

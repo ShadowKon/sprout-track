@@ -22,7 +22,7 @@ async function getDomainUrl(): Promise<string> {
       // Create default app config if none exists
       appConfig = await prisma.appConfig.create({
         data: {
-          adminPass: 'admin',
+          adminPass: '', // Unset: the seed generates one at startup and logs it
           rootDomain: 'localhost:3000',
           enableHttps: false,
         },

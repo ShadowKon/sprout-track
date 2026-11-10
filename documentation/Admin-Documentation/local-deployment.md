@@ -35,8 +35,7 @@ npm start
 
 Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-- Default PIN: `111222`
-- Default /family-manager admin password: `admin`
+- Initial PIN and /family-manager admin password: generated on first setup and printed once in the setup output
 
 ## Quick Setup (PostgreSQL)
 

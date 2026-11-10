@@ -3,6 +3,7 @@ import prisma from '../db';
 import { ApiResponse } from '../types';
 import { withAuthContext, AuthResult } from '../utils/auth';
 import { normalizeNurserySettings, NurserySettings } from '@/src/utils/nursery/settings';
+import { lockedPinHash } from '../utils/pin-utils';
 
 async function handleGet(req: NextRequest, authContext: AuthResult): Promise<NextResponse<ApiResponse<NurserySettings>>> {
   try {
@@ -78,7 +79,7 @@ async function handlePost(req: NextRequest, authContext: AuthResult): Promise<Ne
         data: {
           familyId,
           familyName: 'My Family',
-          securityPin: '111222',
+          securityPin: await lockedPinHash(), // placeholder until the user sets a PIN
           defaultBottleUnit: 'OZ',
           defaultSolidsUnit: 'TBSP',
           defaultHeightUnit: 'IN',

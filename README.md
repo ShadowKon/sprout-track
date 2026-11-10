@@ -145,8 +145,7 @@ docker run -d \
 
 Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-- Default PIN: `111222`
-- Default /family-manager admin password: `admin`
+- Initial PIN and /family-manager admin password: generated on first start and printed once in the container logs (Docker) or setup output (local)
 
 The Setup Wizard will guide you through initial configuration on first access.
 
@@ -176,7 +175,7 @@ On first access, the Setup Wizard walks you through:
 2. **Security Setup** -- system-wide PIN or individual caretaker PINs
 3. **Baby Setup** -- name, birth date, feed/diaper warning thresholds
 
-The **Family Manager** at `/family-manager` (default password: `admin`) provides admin controls for domain settings, HTTPS, email, database backups, and push notifications.
+The **Family Manager** at `/family-manager` (the admin password is printed in the logs on first start) provides admin controls for domain settings, HTTPS, email, database backups, and push notifications.
 
 See [Initial Setup](documentation/Admin-Documentation/initial-setup.md) for details.
 

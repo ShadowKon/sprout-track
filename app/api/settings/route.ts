@@ -6,7 +6,7 @@ import { withAuthContext, AuthResult } from '../utils/auth';
 import { checkWritePermission } from '../utils/writeProtection';
 import { isValidGrowthStandard } from '@/src/utils/growthStandard';
 import { resolveFamilyScope } from '../utils/family-scope';
-import { hashPin } from '../utils/pin-utils';
+import { hashPin, lockedPinHash } from '../utils/pin-utils';
 
 // The family securityPin (login PIN) must never be returned to the client.
 type SettingsResponse = Omit<Settings, 'securityPin'>;
@@ -33,6 +33,7 @@ async function handleGet(req: NextRequest, authContext: AuthResult) {
       settings = await prisma.settings.create({
         data: {
           familyName: 'My Family', // Default family name
+          securityPin: await lockedPinHash(), // placeholder until the user sets a PIN
           defaultBottleUnit: 'OZ',
           defaultSolidsUnit: 'TBSP',
           defaultHeightUnit: 'IN',

@@ -84,21 +84,13 @@ export async function POST(req: NextRequest) {
           );
         }
 
-        // Decrypt the stored admin password and compare
-        // If adminPass is blank/empty, use default "admin" password
-        let decryptedAdminPass: string;
+        // Decrypt the stored admin password and compare. A blank password is
+        // never accepted: the seed generates one at startup and logs it.
+        const decryptedAdminPass = appConfig.adminPass && appConfig.adminPass.trim() !== ''
+          ? (isEncrypted(appConfig.adminPass) ? decrypt(appConfig.adminPass) : appConfig.adminPass)
+          : '';
 
-        if (!appConfig.adminPass || appConfig.adminPass.trim() === '') {
-          // Use default password if stored password is blank
-          decryptedAdminPass = 'admin';
-        } else {
-          // Decrypt if encrypted, otherwise use as-is
-          decryptedAdminPass = isEncrypted(appConfig.adminPass)
-            ? decrypt(appConfig.adminPass)
-            : appConfig.adminPass;
-        }
-
-        if (adminPassword === decryptedAdminPass) {
+        if (decryptedAdminPass && adminPassword === decryptedAdminPass) {
           // Create system admin JWT token
           const token = jwt.sign(
             {

@@ -6,6 +6,7 @@ import {
   DEFAULT_ACTIVITY_TILE_ORDER,
   mergeMissingActivityTiles,
 } from '@/src/utils/activityTileOrder';
+import { lockedPinHash } from '../utils/pin-utils';
 
 /**
  * GET /api/activity-settings
@@ -341,7 +342,7 @@ async function saveActivitySettings(req: NextRequest, authContext: AuthResult): 
         data: {
           familyId: userFamilyId,
           familyName: 'My Family',
-          securityPin: '111222',
+          securityPin: await lockedPinHash(), // placeholder until the user sets a PIN
           defaultBottleUnit: 'OZ',
           defaultSolidsUnit: 'TBSP',
           defaultHeightUnit: 'IN',

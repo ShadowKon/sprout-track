@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/app/api/db';
 import { ApiResponse, withAdminAuth, getAuthenticatedUser, AuthResult } from '@/app/api/utils/auth';
 import { Family } from '@prisma/client';
+import { lockedPinHash } from '../../utils/pin-utils';
 
 interface SetupStartRequest {
   name: string;
@@ -78,6 +79,7 @@ async function handler(req: NextRequest): Promise<NextResponse<ApiResponse<Famil
           data: {
             familyId: family.id,
             familyName: name,
+            securityPin: await lockedPinHash(), // placeholder until the user sets a PIN
           },
         });
 
@@ -88,7 +90,7 @@ async function handler(req: NextRequest): Promise<NextResponse<ApiResponse<Famil
             name: 'system',
             type: 'System Administrator',
             role: 'ADMIN',
-            securityPin: '111222', // Default PIN
+            securityPin: await lockedPinHash(), // placeholder until the user sets a PIN
             familyId: family.id,
             inactive: false,
           },
@@ -138,7 +140,7 @@ async function handler(req: NextRequest): Promise<NextResponse<ApiResponse<Famil
           data: {
             familyId: newFamily.id,
             familyName: name,
-            securityPin: '111222', // Default PIN, user can change later
+            securityPin: await lockedPinHash(), // placeholder until the user sets a PIN
             defaultBottleUnit: 'OZ',
             defaultSolidsUnit: 'TBSP',
             defaultHeightUnit: 'IN',
@@ -160,7 +162,7 @@ async function handler(req: NextRequest): Promise<NextResponse<ApiResponse<Famil
             name: 'system',
             type: 'System Administrator',
             role: 'ADMIN',
-            securityPin: '111222', // Default PIN
+            securityPin: await lockedPinHash(), // placeholder until the user sets a PIN
             familyId: newFamily.id,
             inactive: false,
           },
@@ -229,6 +231,7 @@ async function handler(req: NextRequest): Promise<NextResponse<ApiResponse<Famil
             data: {
               familyId: family.id,
               familyName: name,
+              securityPin: await lockedPinHash(), // placeholder until the user sets a PIN
             },
           });
 
@@ -239,7 +242,7 @@ async function handler(req: NextRequest): Promise<NextResponse<ApiResponse<Famil
               name: 'system',
               type: 'System Administrator',
               role: 'ADMIN',
-              securityPin: '111222', // Default PIN
+              securityPin: await lockedPinHash(), // placeholder until the user sets a PIN
               familyId: family.id,
               inactive: false,
             },
@@ -265,6 +268,7 @@ async function handler(req: NextRequest): Promise<NextResponse<ApiResponse<Famil
               where: { familyId: family.id },
               data: {
                 familyName: name,
+                securityPin: await lockedPinHash(), // placeholder until the user sets a PIN
               },
             });
           } else {
@@ -282,6 +286,7 @@ async function handler(req: NextRequest): Promise<NextResponse<ApiResponse<Famil
               data: {
                 familyId: family.id,
                 familyName: name,
+                securityPin: await lockedPinHash(), // placeholder until the user sets a PIN
               },
             });
 
@@ -292,7 +297,7 @@ async function handler(req: NextRequest): Promise<NextResponse<ApiResponse<Famil
                 name: 'system',
                 type: 'System Administrator',
                 role: 'ADMIN',
-                securityPin: '111222', // Default PIN
+                securityPin: await lockedPinHash(), // placeholder until the user sets a PIN
                 familyId: family.id,
                 inactive: false,
               },

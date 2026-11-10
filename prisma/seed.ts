@@ -4,6 +4,18 @@ import * as path from 'path';
 import * as crypto from 'crypto';
 import * as webPush from 'web-push';
 import { encrypt } from '../app/api/utils/encryption';
+import { generateLoginPin, hashPin } from '../app/api/utils/pin-utils';
+import { generateAdminPassword } from '../app/api/utils/password-utils';
+
+// Print a first-boot credential once, loudly, so it can be found in the logs.
+function announceCredential(label: string, value: string) {
+  console.log('');
+  console.log('==================================================================');
+  console.log(`  ${label}: ${value}`);
+  console.log('  Shown once. Change it after logging in.');
+  console.log('==================================================================');
+  console.log('');
+}
 
 type UnitData = {
   unitAbbr: string;
@@ -15,6 +27,16 @@ async function main() {
   // Check if any families exist - if not, create the initial family and system caretaker
   const familyCount = await prisma.family.count();
   let defaultFamilyId: string;
+  // Generated lazily so a restart of an already-seeded install changes nothing.
+  let bootstrapPinHash: string | null = null;
+  const getBootstrapPinHash = async () => {
+    if (!bootstrapPinHash) {
+      const pin = generateLoginPin();
+      announceCredential('Initial family login PIN', pin);
+      bootstrapPinHash = await hashPin(pin);
+    }
+    return bootstrapPinHash;
+  };
 
   if (familyCount === 0) {
     console.log('No families found. Creating initial family and system caretaker...');
@@ -38,7 +60,7 @@ async function main() {
         name: 'system',
         type: 'System Administrator',
         role: 'ADMIN',
-        securityPin: '111222', // Default PIN
+        securityPin: await getBootstrapPinHash(),
         familyId: defaultFamilyId,
         inactive: false,
         deletedAt: null
@@ -53,15 +75,28 @@ async function main() {
     console.log(`Using existing family: ${firstFamily!.name} for settings`);
   }
 
-  // Ensure default settings exist with PIN 111222
+  // Ensure a system admin password exists. Covers fresh installs and the
+  // pre-migration check, which blanks adminPass on older databases.
+  const appConfig = await prisma.appConfig.findFirst();
+  if (!appConfig || !appConfig.adminPass || appConfig.adminPass.trim() === '') {
+    const adminPass = generateAdminPassword();
+    if (appConfig) {
+      await prisma.appConfig.update({ where: { id: appConfig.id }, data: { adminPass: encrypt(adminPass) } });
+    } else {
+      await prisma.appConfig.create({ data: { adminPass: encrypt(adminPass), rootDomain: 'localhost:3000', enableHttps: false } });
+    }
+    announceCredential('System admin password (family manager)', adminPass);
+  }
+
+  // Ensure default settings exist (PIN shares the generated bootstrap PIN)
   const settingsCount = await prisma.settings.count();
   if (settingsCount === 0) {
-    console.log('Creating default settings with PIN: 111222');
+    console.log('Creating default settings...');
     await prisma.settings.create({
       data: {
         familyId: defaultFamilyId,
         familyName: "My Family",
-        securityPin: "111222",
+        securityPin: await getBootstrapPinHash(),
         // authType will be auto-detected based on caretaker existence
         defaultBottleUnit: "OZ",
         defaultSolidsUnit: "TBSP",

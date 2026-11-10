@@ -29,16 +29,13 @@ Choose one of two authentication modes:
 
 After a fresh installation or database seed:
 
-| Credential | Default Value |
-|------------|---------------|
-| Login PIN | `111222` |
-| Family Manager admin password | `admin` |
+There are no default credentials. On first start, a random login PIN and Family Manager admin password are generated and printed once to the logs (Docker: `docker logs <container>`; local: the setup script output). Change both after your first login.
 
-Change both of these immediately after your first login.
+If the admin password is ever blank (for example after migrating an older database), a new one is generated and logged on the next start.
 
 ## Family Manager
 
-The Family Manager is an admin interface at `/family-manager`. Log in with the admin password (default: `admin`).
+The Family Manager is an admin interface at `/family-manager`. Log in with the admin password printed in the logs on first start.
 
 From the Family Manager you can:
 

@@ -6,7 +6,7 @@
 # 3. Installs dependencies
 # 4. Generates the Prisma clients (main and log)
 # 5. Runs database migrations (creates the database schemas for main and log databases)
-# 6. Seeds the database with initial data (creates default family, system caretaker with PIN 111222, and units)
+# 6. Seeds the database with initial data (creates default family, system caretaker with a generated PIN, and units)
 # 7. Builds the Next.js application
 # 8. Sets up push notification infrastructure (if ENABLE_NOTIFICATIONS=true)
 
@@ -137,13 +137,13 @@ fi
 echo "Database migrations deployed successfully."
 
 # Step 6: Seed the database (creates default family, system caretaker, settings, and units)
-echo "Step 6: Seeding the database with default family, system caretaker (PIN: 111222), and units..."
+echo "Step 6: Seeding the database with default family, system caretaker (generated PIN, printed below), and units..."
 npm run prisma:seed
 if [ $? -ne 0 ]; then
     echo "Error: Database seeding failed! Setup aborted."
     exit 1
 fi
-echo "Database seeded successfully with default family, system caretaker (PIN: 111222), and units."
+echo "Database seeded successfully with default family, system caretaker (generated PIN), and units."
 
 # Step 6a: Convert legacy Prisma 6 integer DateTimes to Prisma 7 text (idempotent, SQLite only)
 echo "Converting legacy SQLite datetime values..."
@@ -199,7 +199,7 @@ fi
 
 echo "-------------------------------------"
 echo "Sprout Track setup completed successfully!"
-echo "Default security PIN: 111222"
+echo "Initial security PIN and admin password: printed in the seed output above (shown once)"
 echo "Default family: My Family (my-family)"
 echo ""
 if [ "$ENABLE_NOTIFICATIONS" = "true" ]; then
@@ -209,7 +209,7 @@ if [ "$ENABLE_NOTIFICATIONS" = "true" ]; then
     echo "  - Settings: manage via App Configuration in admin UI"
     echo ""
 fi
-echo "Navigate to the application and use PIN 111222 to complete setup."
+echo "Navigate to the application and use the PIN printed above to complete setup."
 echo ""
 echo "To run the development server:"
 echo "  npm run dev"
