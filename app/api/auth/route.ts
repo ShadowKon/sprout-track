@@ -3,6 +3,7 @@ import prisma from '../db';
 import { ApiResponse } from '../types';
 import jwt from 'jsonwebtoken';
 import { checkIpLockout, recordFailedAttempt, resetFailedAttempts } from '../utils/ip-lockout';
+import { getLoginTargetKey, TARGET_MAX_ATTEMPTS } from '../utils/login-target';
 import { decrypt, isEncrypted } from '../utils/encryption';
 import { randomUUID } from 'crypto';
 import { logApiCall, getClientInfo } from '../utils/api-logger';
@@ -15,6 +16,18 @@ export async function POST(req: NextRequest) {
   const startTime = Date.now();
   const { ip, userAgent } = getClientInfo(req);
   let requestBody: any;
+  // Failures count against both the client IP and the login target (family /
+  // caretaker). The IP comes from X-Forwarded-For, which a client can spoof, so
+  // the target counter is what actually bounds a PIN brute-force.
+  let targetKey: string | null = null;
+  const recordLoginFailure = () => {
+    recordFailedAttempt(ip);
+    if (targetKey) recordFailedAttempt(targetKey, TARGET_MAX_ATTEMPTS);
+  };
+  const resetLoginFailures = () => {
+    resetFailedAttempts(ip);
+    if (targetKey) resetFailedAttempts(targetKey);
+  };
 
   try {
 
@@ -32,6 +45,18 @@ export async function POST(req: NextRequest) {
 
     requestBody = await req.json();
     const { loginId, securityPin, familySlug, adminPassword } = requestBody;
+
+    targetKey = getLoginTargetKey(requestBody);
+    const targetLockout = targetKey ? checkIpLockout(targetKey) : { locked: false, remainingTime: 0 };
+    if (targetLockout.locked) {
+      return NextResponse.json<ApiResponse<null>>(
+        {
+          success: false,
+          error: `Too many failed attempts for this account. Please try again in ${Math.ceil(targetLockout.remainingTime / 60000)} minutes.`,
+        },
+        { status: 429 }
+      );
+    }
 
     if (!securityPin && !adminPassword) {
       return NextResponse.json<ApiResponse<null>>(
@@ -89,7 +114,7 @@ export async function POST(req: NextRequest) {
           );
 
           // Reset failed attempts on successful login
-          resetFailedAttempts(ip);
+          resetLoginFailures();
 
           // Create response with system admin token
           const response = NextResponse.json<ApiResponse<{
@@ -141,7 +166,7 @@ export async function POST(req: NextRequest) {
           return response;
         } else {
           // Record failed attempt for invalid admin password
-          recordFailedAttempt(ip);
+          recordLoginFailure();
           return NextResponse.json<ApiResponse<null>>(
             {
               success: false,
@@ -332,7 +357,7 @@ export async function POST(req: NextRequest) {
           }
 
           // Reset failed attempts on successful login
-          resetFailedAttempts(ip);
+          resetLoginFailures();
 
           // Set refresh token cookie for system caretaker
           const systemRefreshToken = createRefreshToken({
@@ -372,7 +397,7 @@ export async function POST(req: NextRequest) {
     } else if (authType === 'CARETAKER') {
       // If authType is CARETAKER, block system PIN authentication
       if (!loginId) {
-        recordFailedAttempt(ip);
+        recordLoginFailure();
         return NextResponse.json<ApiResponse<null>>(
           {
             success: false,
@@ -401,7 +426,7 @@ export async function POST(req: NextRequest) {
 
       // Security check: If authType is CARETAKER and this is a system caretaker (loginId '00'), deny access
       if (caretaker && caretaker.loginId === '00' && authType === 'CARETAKER') {
-        recordFailedAttempt(ip);
+        recordLoginFailure();
         return NextResponse.json<ApiResponse<null>>(
           {
             success: false,
@@ -425,7 +450,7 @@ export async function POST(req: NextRequest) {
 
         if (regularCaretakerCount > 0) {
           // Record failed attempt for security
-          recordFailedAttempt(ip);
+          recordLoginFailure();
           return NextResponse.json<ApiResponse<null>>(
             {
               success: false,
@@ -507,7 +532,7 @@ export async function POST(req: NextRequest) {
         }
 
         // Reset failed attempts on successful login
-        resetFailedAttempts(ip);
+        resetLoginFailures();
 
         // Set refresh token cookie for caretaker
         const caretakerRefreshToken = createRefreshToken({
@@ -538,7 +563,7 @@ export async function POST(req: NextRequest) {
     
     // If we get here, authentication failed
     // Record the failed attempt
-    recordFailedAttempt(ip);
+    recordLoginFailure();
 
     // Provide a more specific error message if family validation failed
     const errorMessage = targetFamily

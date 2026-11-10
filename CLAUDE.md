@@ -173,7 +173,7 @@ export const GET = withAuthContext(handler);
 - Logout via `/api/auth/logout` — token is added to a server-side blacklist
 - Token expiration controlled by `AUTH_LIFE` env var (seconds)
 - Idle timeout controlled by `IDLE_TIME` env var (seconds)
-- Three failed login attempts trigger a 5-minute IP-based lockout (see `/app/api/utils/ip-lockout.ts`)
+- Three failed login attempts trigger a 5-minute IP-based lockout (see `/app/api/utils/ip-lockout.ts`). Because the IP comes from a spoofable `X-Forwarded-For`, `/api/auth` also counts failures per login target (family, or sysadmin), 10 attempts, via `/app/api/utils/login-target.ts`. `/api/auth/ip-lockout` is GET-only; never re-add public handlers that record or clear failures.
 
 ### System caretaker behavior
 

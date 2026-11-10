@@ -49,7 +49,10 @@ export function checkIpLockout(ip: string): { locked: boolean; remainingTime: nu
  * @param ip The IP address to record the failed attempt for
  * @returns Object containing lockout status and time remaining
  */
-export function recordFailedAttempt(ip: string): { locked: boolean; remainingTime: number } {
+export function recordFailedAttempt(
+  ip: string,
+  maxAttempts: number = MAX_ATTEMPTS
+): { locked: boolean; remainingTime: number } {
   // Get or create the record for this IP
   const attempt = failedAttempts[ip] || { count: 0, lockoutUntil: null };
   
@@ -65,7 +68,7 @@ export function recordFailedAttempt(ip: string): { locked: boolean; remainingTim
   attempt.count += 1;
   
   // If the count exceeds the maximum, lock the IP
-  if (attempt.count >= MAX_ATTEMPTS) {
+  if (attempt.count >= maxAttempts) {
     attempt.lockoutUntil = Date.now() + LOCKOUT_DURATION;
     attempt.count = 0; // Reset count for next window
   }
