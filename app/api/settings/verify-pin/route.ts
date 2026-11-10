@@ -3,6 +3,7 @@ import prisma from '../../db';
 import { ApiResponse } from '../../types';
 import { withAuthContext, AuthResult } from '../../utils/auth';
 import { resolveFamilyScope } from '../../utils/family-scope';
+import { verifyPin } from '../../utils/pin-utils';
 
 /**
  * POST /api/settings/verify-pin
@@ -44,7 +45,7 @@ async function handler(
       select: { securityPin: true },
     });
 
-    const valid = !!settings && settings.securityPin === pin;
+    const valid = !!settings && (await verifyPin(pin, settings.securityPin)).valid;
 
     return NextResponse.json<ApiResponse<{ valid: boolean }>>({
       success: true,

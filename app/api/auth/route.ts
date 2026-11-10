@@ -6,6 +6,7 @@ import { checkIpLockout, recordFailedAttempt, resetFailedAttempts } from '../uti
 import { getLoginTargetKey, TARGET_MAX_ATTEMPTS } from '../utils/login-target';
 import { decrypt, isEncrypted } from '../utils/encryption';
 import { randomUUID } from 'crypto';
+import { verifyPin, hashPin } from '../utils/pin-utils';
 import { logApiCall, getClientInfo } from '../utils/api-logger';
 import { ACCESS_TOKEN_LIFE, createRefreshToken, setRefreshTokenCookie, getJwtSecret } from '../utils/auth';
 
@@ -253,7 +254,12 @@ export async function POST(req: NextRequest) {
 
     // Handle SYSTEM authentication type
     if (authType === 'SYSTEM') {
-      if (settings.securityPin === securityPin) {
+      const systemPinCheck = await verifyPin(securityPin, settings.securityPin);
+      if (systemPinCheck.valid) {
+        if (systemPinCheck.needsRehash) {
+          settings.securityPin = await hashPin(securityPin);
+          await prisma.settings.update({ where: { id: settings.id }, data: { securityPin: settings.securityPin } });
+        }
         // Find the system caretaker to get family information
         let systemCaretaker = await prisma.caretaker.findFirst({
           where: {
@@ -461,7 +467,13 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      if (caretaker && caretaker.securityPin === securityPin) {
+      const caretakerPinCheck = caretaker
+        ? await verifyPin(securityPin, caretaker.securityPin)
+        : { valid: false, needsRehash: false };
+      if (caretaker && caretakerPinCheck.valid) {
+        if (caretakerPinCheck.needsRehash) {
+          await prisma.caretaker.update({ where: { id: caretaker.id }, data: { securityPin: await hashPin(securityPin) } });
+        }
         // Create JWT token for caretaker
         // Include subscription data for family context checking
         let tokenData: any = {

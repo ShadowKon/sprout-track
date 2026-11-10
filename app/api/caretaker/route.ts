@@ -5,6 +5,7 @@ import { withAuthContext, AuthResult } from '../utils/auth';
 import { checkWritePermission } from '../utils/writeProtection';
 import { toCaretakerResponse } from '../utils/caretaker';
 import { resolveFamilyScope } from '../utils/family-scope';
+import { hashPin } from '../utils/pin-utils';
 import { isValidBadgeColorId } from '@/src/constants/caretakerBadge';
 
 // Coerce a client-supplied badge color to a known id or null, in place. Only
@@ -76,6 +77,7 @@ async function postHandler(req: NextRequest, authContext: AuthResult) {
     const caretaker = await prisma.caretaker.create({
       data: {
         ...body,
+        securityPin: await hashPin(body.securityPin),
         familyId: targetFamilyId,
       },
     });
@@ -133,6 +135,8 @@ async function putHandler(req: NextRequest, authContext: AuthResult) {
     // overwrite the stored PIN with an empty value (which would break that caretaker's login).
     if (updateData.securityPin === '' || updateData.securityPin === undefined || updateData.securityPin === null) {
       delete updateData.securityPin;
+    } else {
+      updateData.securityPin = await hashPin(String(updateData.securityPin));
     }
 
     sanitizeBadgeColor(updateData);

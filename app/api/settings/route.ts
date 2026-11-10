@@ -6,6 +6,7 @@ import { withAuthContext, AuthResult } from '../utils/auth';
 import { checkWritePermission } from '../utils/writeProtection';
 import { isValidGrowthStandard } from '@/src/utils/growthStandard';
 import { resolveFamilyScope } from '../utils/family-scope';
+import { hashPin } from '../utils/pin-utils';
 
 // The family securityPin (login PIN) must never be returned to the client.
 type SettingsResponse = Omit<Settings, 'securityPin'>;
@@ -128,6 +129,10 @@ async function handlePut(req: NextRequest, authContext: AuthResult) {
         if (field === 'securityPin' && (body[field] === '' || body[field] === null)) {
           continue;
         }
+        if (field === 'securityPin') {
+          (data as any)[field] = await hashPin(String(body[field]));
+          continue;
+        }
         if (field === 'photoQuotaMB') {
           // null clears the family override, falling back to the AppConfig default.
           if (body[field] === null) {
@@ -176,7 +181,7 @@ async function handlePut(req: NextRequest, authContext: AuthResult) {
         if (systemCaretaker) {
           await prisma.caretaker.update({
             where: { id: systemCaretaker.id },
-            data: { securityPin: body.securityPin }
+            data: { securityPin: settings.securityPin }
           });
           console.log('Updated system caretaker security pin to match settings.');
         } else {
