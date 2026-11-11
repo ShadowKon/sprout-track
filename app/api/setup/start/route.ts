@@ -206,7 +206,20 @@ async function handler(req: NextRequest): Promise<NextResponse<ApiResponse<Famil
       return NextResponse.json({ success: true, data: family });
     } else if (authResult.isSysAdmin || authResult.caretakerRole === 'ADMIN') {
       // System admin or admin caretaker scenarios
-      
+
+      // A family admin may only run first-time setup of their own family while it
+      // is unfinished. Without this, an admin could re-run setup on a finished
+      // install (resetting setupStage, which reopens the *-initial restore routes)
+      // or create extra families.
+      if (!authResult.isSysAdmin) {
+        const ownFamily = authResult.familyId
+          ? await prisma.family.findUnique({ where: { id: authResult.familyId }, select: { setupStage: true } })
+          : null;
+        if (isNewFamily || !ownFamily || ownFamily.setupStage >= 3) {
+          return NextResponse.json({ success: false, error: 'Setup has already been completed' }, { status: 403 });
+        }
+      }
+
       // Check if slug is unique
       const existingFamily = await prisma.family.findUnique({ where: { slug } });
       if (existingFamily) {
@@ -251,7 +264,8 @@ async function handler(req: NextRequest): Promise<NextResponse<ApiResponse<Famil
           // SCENARIO 1: Brand new setup - update existing default family or create new one
           const families = await tx.family.findMany();
           
-          if (families.length === 1 && families[0].slug === 'my-family') {
+          if (families.length === 1 && families[0].slug === 'my-family' &&
+              (authResult.isSysAdmin || families[0].id === authResult.familyId)) {
             // Update the existing default family
             family = await tx.family.update({
               where: { id: families[0].id },
