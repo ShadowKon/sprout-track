@@ -165,7 +165,8 @@ async function postHandler(req: NextRequest): Promise<NextResponse<ApiResponse<a
               }
 
               // Backup existing .env
-              const envBackupPath = `${envPath}.backup-${dateStr}`;
+              // Next to the real env file (/app/env in Docker) so /app can stay root-owned
+              const envBackupPath = `${fs.realpathSync(envPath)}.backup-${dateStr}`;
               await fs.promises.copyFile(envPath, envBackupPath);
             }
 

@@ -41,15 +41,42 @@ if [ -n "$TZ" ]; then
   fi
 fi
 
+# Privilege model: this script starts as root only for TZ setup, handing the
+# writable paths to "node", and starting crond. Everything that reads or runs
+# files the app can write (the env file, prisma schema, generated clients)
+# runs as node, so a compromised app process cannot get code run as root.
+# The env file is parsed as KEY=value lines, never sourced (sourcing executes it).
+if [ "$(id -u)" = "0" ]; then
+  AS_NODE="su-exec node"
+  # find ! -user keeps restarts fast on large photo volumes.
+  for dir in /db /app/env /app/Files /app/logs /app/prisma /app/node_modules/.prisma /app/.next/cache; do
+    [ -d "$dir" ] && find "$dir" ! -user node -exec chown node:node {} +
+  done
+else
+  AS_NODE=""
+fi
+
+load_env_file() {
+  while IFS= read -r line || [ -n "$line" ]; do
+    case "$line" in ''|'#'*) continue ;; esac
+    key="${line%%=*}"
+    val="${line#*=}"
+    case "$key" in ''|*[!A-Za-z0-9_]*) continue ;; esac
+    case "$val" in
+      \"*\") val="${val#\"}"; val="${val%\"}" ;;
+      \'*\') val="${val#\'}"; val="${val%\'}" ;;
+    esac
+    export "$key=$val"
+  done < "$1"
+}
+
 # Ensure all required environment variables exist with defaults
 echo "Ensuring environment defaults..."
-npm run env:ensure -- docker /app/env/.env
+$AS_NODE npm run env:ensure -- docker /app/env/.env
 
-# Source the env file so vars are available in this shell session
+# Load the env file so vars are available in this shell session
 ENV_FILE="/app/env/.env"
-set -a
-. "$ENV_FILE"
-set +a
+load_env_file "$ENV_FILE"
 
 # Runtime container env takes precedence over the persisted env file for DB
 # settings (issue #171): a stale or baked sqlite env file must not clobber a
@@ -80,8 +107,8 @@ if [ "$DB_PROVIDER" = "postgresql" ]; then
 fi
 
 echo "Generating Prisma clients..."
-npm run prisma:generate
-npm run prisma:generate:log
+$AS_NODE npm run prisma:generate
+$AS_NODE npm run prisma:generate:log
 
 if [ "$DB_PROVIDER" = "postgresql" ]; then
   # PostgreSQL: wait for database to be ready, then push schema
@@ -107,31 +134,31 @@ if [ "$DB_PROVIDER" = "postgresql" ]; then
   fi
 
   echo "Pushing database schema to PostgreSQL..."
-  npx prisma db push --accept-data-loss
+  $AS_NODE npx prisma db push --accept-data-loss
 
   echo "Pushing log database schema to PostgreSQL..."
-  npx prisma db push --config prisma/log.config.ts --accept-data-loss
+  $AS_NODE npx prisma db push --config prisma/log.config.ts --accept-data-loss
 else
   # SQLite: use migration deploy (existing behavior)
   echo "Running database migrations..."
-  npx prisma migrate deploy
+  $AS_NODE npx prisma migrate deploy
 
   echo "Creating log database schema..."
-  npx prisma db push --config prisma/log.config.ts --accept-data-loss
+  $AS_NODE npx prisma db push --config prisma/log.config.ts --accept-data-loss
 fi
 
 echo "Converting legacy SQLite datetime values..."
 # Idempotent: Prisma 6 stored DateTimes as integer ms, Prisma 7's adapter uses text
-node scripts/convert-sqlite-datetimes.js
+$AS_NODE node scripts/convert-sqlite-datetimes.js
 
 echo "Seeding database..."
 # Seed script has built-in checks for all entities (families, caretakers, settings, units)
 # It only creates/updates what doesn't exist, so it's safe to run on every startup
-npx prisma db seed
+$AS_NODE npx prisma db seed
 
 echo "Converting legacy solids feeds to food logs..."
 # Idempotent: converted feeds are deleted, so reruns find nothing to do
-node scripts/convert-solids-feeds.js
+$AS_NODE node scripts/convert-solids-feeds.js
 
 # Notification setup (only if enabled)
 if [ "$ENABLE_NOTIFICATIONS" = "true" ]; then
@@ -154,6 +181,8 @@ if [ "$ENABLE_NOTIFICATIONS" = "true" ]; then
 
   # Setup cron job
   echo "Setting up notification cron job..."
+  # crond runs as root; the job itself runs as node (CRON_RUN_AS).
+  [ -n "$AS_NODE" ] && export CRON_RUN_AS=node
   npm run notification:cron:setup
   if [ $? -eq 0 ]; then
     echo "✓ Cron job setup completed"
@@ -177,17 +206,8 @@ else
   echo "Notifications are disabled (ENABLE_NOTIFICATIONS != true)"
 fi
 
-# Drop root before starting the app. Setup above (TZ, Prisma generate, crond)
-# needs root; the app itself runs as the unprivileged "node" user. Only paths
-# the app writes at runtime are handed over: the data volumes, the generated
-# Prisma clients and schema (backup restore regenerates them), the Next.js
-# cache, and /app itself (restore writes /app/.env.backup-*). find ! -user
-# keeps restarts fast on large photo volumes.
-if [ "$(id -u)" = "0" ]; then
-  for dir in /db /app/env /app/Files /app/logs /app/prisma /app/node_modules/.prisma /app/.next/cache; do
-    [ -d "$dir" ] && find "$dir" ! -user node -exec chown node:node {} +
-  done
-  chown node:node /app
+# Drop root before starting the app.
+if [ -n "$AS_NODE" ]; then
   echo "Starting application as user node..."
   exec su-exec node "$@"
 fi

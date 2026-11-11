@@ -7,12 +7,20 @@
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-# Load environment variables from .env file if it exists
+# Load environment variables from .env file if it exists. Parsed as KEY=value
+# lines, never sourced: sourcing would execute the file.
 if [ -f "$PROJECT_DIR/.env" ]; then
-  # Export variables from .env file (simple parsing, handles quoted values)
-  set -a
-  . "$PROJECT_DIR/.env" 2>/dev/null || true
-  set +a
+  while IFS= read -r line || [ -n "$line" ]; do
+    case "$line" in ''|'#'*) continue ;; esac
+    key="${line%%=*}"
+    val="${line#*=}"
+    case "$key" in ''|*[!A-Za-z0-9_]*) continue ;; esac
+    case "$val" in
+      \"*\") val="${val#\"}"; val="${val%\"}" ;;
+      \'*\') val="${val#\'}"; val="${val%\'}" ;;
+    esac
+    export "$key=$val"
+  done < "$PROJECT_DIR/.env"
 fi
 
 # Check if cron secret is set

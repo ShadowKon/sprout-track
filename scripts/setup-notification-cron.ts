@@ -80,7 +80,11 @@ function addCronJob(crontab: string): string {
     console.warn(`Warning: Could not make ${cronScriptPath} executable:`, error);
   }
   
-  const cronLine = `${CRON_SCHEDULE} /bin/sh ${cronScriptPath} >> ${logPath} 2>&1`;
+  // In Docker, crond runs as root but the job runs unprivileged (CRON_RUN_AS=node).
+  const runAs = process.env.CRON_RUN_AS && /^[a-z_][a-z0-9_-]*$/.test(process.env.CRON_RUN_AS)
+    ? `su-exec ${process.env.CRON_RUN_AS} `
+    : '';
+  const cronLine = `${CRON_SCHEDULE} ${runAs}/bin/sh ${cronScriptPath} >> ${logPath} 2>&1`;
   
   // Add newline if crontab is not empty
   const separator = crontab.trim() ? '\n' : '';
