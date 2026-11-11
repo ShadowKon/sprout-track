@@ -38,6 +38,15 @@ describe('no default credentials in server code', () => {
   });
 });
 
+describe('legacy caretakerId cookie', () => {
+  it('is neither accepted as authentication nor set on login', () => {
+    const auth = readFileSync(path.join(process.cwd(), 'app/api/utils/auth.ts'), 'utf-8');
+    const login = readFileSync(path.join(process.cwd(), 'app/api/auth/route.ts'), 'utf-8');
+    expect(auth).not.toMatch(/cookies\.get\('caretakerId'\)/);
+    expect(login).not.toMatch(/cookies\.set\('caretakerId'/);
+  });
+});
+
 describe('bootstrap credential generators', () => {
   it('generateLoginPin returns 6 digits', () => {
     for (let i = 0; i < 50; i++) expect(generateLoginPin()).toMatch(/^\d{6}$/);

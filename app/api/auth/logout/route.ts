@@ -28,7 +28,8 @@ export async function POST(req: NextRequest) {
       { status: 200 }
     );
     
-    // Clear the caretakerId cookie with the same settings it was set with
+    // Clear any legacy caretakerId cookie left in browsers from older versions.
+    // It is no longer set or accepted as authentication.
     response.cookies.set('caretakerId', '', {
       httpOnly: true,
       secure: process.env.COOKIE_SECURE === 'true',

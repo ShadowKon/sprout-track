@@ -170,8 +170,6 @@ export async function getAuthenticatedUser(req: NextRequest): Promise<AuthResult
       token = authHeader.substring(7); // Remove 'Bearer ' prefix
     }
 
-    // If no token in header, try to get caretakerId from cookies (backward compatibility)
-    const caretakerId = req.cookies.get('caretakerId')?.value;
 
     // If we have a JWT token, verify it
     if (token) {
@@ -426,94 +424,6 @@ export async function getAuthenticatedUser(req: NextRequest): Promise<AuthResult
       }
     }
     
-    // If no token but we have a caretakerId cookie, use the old method (backward compatibility)
-    if (caretakerId) {
-      // Verify caretaker exists in database
-      const caretaker = await prisma.caretaker.findFirst({
-        where: {
-          id: caretakerId,
-          deletedAt: null,
-        },
-        include: {
-          family: {
-            include: {
-              account: {
-                select: {
-                  id: true,
-                  betaparticipant: true,
-                  trialEnds: true,
-                  planType: true,
-                  planExpires: true,
-                  closed: true,
-                }
-              }
-            }
-          },
-        },
-      });
-
-      if (caretaker) {
-        // Calculate expiration status if family has an account (only in SAAS mode)
-        let isExpired = false;
-        let trialEnds: string | null = null;
-        let planExpires: string | null = null;
-        let planType: string | null = null;
-        let betaparticipant = false;
-
-        if (caretaker.family?.account) {
-          const account = caretaker.family.account;
-          const isSaasMode = process.env.DEPLOYMENT_MODE === 'saas';
-
-          // Check account closure
-          if (account.closed) {
-            return { authenticated: false, error: 'Family account is closed' };
-          }
-
-          // Store account metadata
-          betaparticipant = account.betaparticipant || false;
-          trialEnds = account.trialEnds?.toISOString() || null;
-          planExpires = account.planExpires?.toISOString() || null;
-          planType = account.planType;
-
-          // Calculate expiration status in SAAS mode for non-beta accounts
-          if (isSaasMode && !account.betaparticipant) {
-            const now = new Date();
-
-            // Check trial expiration
-            if (account.trialEnds) {
-              const trialEndDate = new Date(account.trialEnds);
-              isExpired = now > trialEndDate;
-            }
-            // Check plan expiration (if no trial)
-            else if (account.planExpires) {
-              const planEndDate = new Date(account.planExpires);
-              isExpired = now > planEndDate;
-            }
-            // No trial and no plan = expired
-            else if (!account.planType) {
-              isExpired = true;
-            }
-          }
-        }
-
-        return {
-          authenticated: true,
-          caretakerId: caretaker.id,
-          caretakerType: caretaker.type,
-          // Use type assertion for role until Prisma types are updated
-          caretakerRole: (caretaker as any).role || 'USER',
-          familyId: caretaker.familyId,
-          familySlug: caretaker.family?.slug,
-          isSysAdmin: false,
-          authType: 'CARETAKER',
-          betaparticipant,
-          isExpired,
-          trialEnds,
-          planExpires,
-          planType,
-        };
-      }
-    }
 
     return { authenticated: false, error: 'No valid authentication found' };
   } catch (error) {

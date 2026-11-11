@@ -333,15 +333,6 @@ export async function POST(req: NextRequest) {
             }
           );
           
-          // Also set the caretakerId cookie for backward compatibility
-          response.cookies.set('caretakerId', systemCaretaker.id, {
-            httpOnly: true,
-            secure: process.env.COOKIE_SECURE === 'true',
-            sameSite: 'strict',
-            maxAge: TOKEN_EXPIRATION, // Use AUTH_LIFE env variable
-            path: '/',
-          });
-          
           // Update settings with detected authType if it was auto-detected
           if (!settings.authType) {
             try {
@@ -513,15 +504,6 @@ export async function POST(req: NextRequest) {
             },
           }
         );
-        
-        // Also set the caretakerId cookie for backward compatibility
-        response.cookies.set('caretakerId', caretaker.id, {
-          httpOnly: true,
-          secure: process.env.COOKIE_SECURE === 'true',
-          sameSite: 'strict',
-          maxAge: TOKEN_EXPIRATION, // Use AUTH_LIFE env variable
-          path: '/',
-        });
         
         // Update settings with detected authType if it was auto-detected
         if (!settings.authType) {
