@@ -195,8 +195,13 @@ if [ "$ENABLE_NOTIFICATIONS" = "true" ]; then
   echo "Setting up notification cron job..."
   # crond runs as root; the job itself runs as node (CRON_RUN_AS).
   [ -n "$AS_NODE" ] && export CRON_RUN_AS=node
-  npm run notification:cron:setup
-  if [ $? -eq 0 ]; then
+  # This step runs as root through tsx, which caches compiled code under
+  # $TMPDIR. A fresh root-only directory means node can't pre-seed that cache.
+  CRON_SETUP_TMP="$(mktemp -d)"
+  TMPDIR="$CRON_SETUP_TMP" npm run notification:cron:setup
+  CRON_SETUP_STATUS=$?
+  rm -rf "$CRON_SETUP_TMP"
+  if [ $CRON_SETUP_STATUS -eq 0 ]; then
     echo "✓ Cron job setup completed"
   else
     echo "⚠ Warning: Cron job setup failed, but continuing..."

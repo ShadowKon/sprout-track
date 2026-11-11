@@ -55,6 +55,10 @@ describe('docker non-root app process', () => {
     expect(cronSetup).toContain("su-exec ${runAs} /bin/sh -c '${job}'");
   });
 
+  it('runs the root cron setup with a fresh private TMPDIR (tsx cache)', () => {
+    expect(startup).toMatch(/CRON_SETUP_TMP="\$\(mktemp -d\)"\n\s*TMPDIR="\$CRON_SETUP_TMP" npm run notification:cron:setup/);
+  });
+
   it('runs the cron job as node while crond stays root', () => {
     expect(startup).toContain('export CRON_RUN_AS=node');
     expect(cronSetup).toContain('process.env.CRON_RUN_AS');
