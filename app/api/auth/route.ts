@@ -3,7 +3,7 @@ import prisma from '../db';
 import { ApiResponse } from '../types';
 import jwt from 'jsonwebtoken';
 import { checkIpLockout, recordFailedAttempt, resetFailedAttempts } from '../utils/ip-lockout';
-import { getLoginTargetKey, TARGET_MAX_ATTEMPTS } from '../utils/login-target';
+import { getLoginTargetKey, familyTargetKey, validateLoginBody, TARGET_MAX_ATTEMPTS } from '../utils/login-target';
 import { decrypt, isEncrypted } from '../utils/encryption';
 import { randomUUID } from 'crypto';
 import { verifyPin, hashPin } from '../utils/pin-utils';
@@ -44,12 +44,16 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    requestBody = await req.json();
+    requestBody = await req.json().catch(() => null);
+    const bodyError = validateLoginBody(requestBody);
+    if (bodyError) {
+      return NextResponse.json<ApiResponse<null>>({ success: false, error: bodyError }, { status: 400 });
+    }
     const { loginId, securityPin, familySlug, adminPassword } = requestBody;
 
-    targetKey = getLoginTargetKey(requestBody);
-    const targetLockout = targetKey ? checkIpLockout(targetKey) : { locked: false, remainingTime: 0 };
-    if (targetLockout.locked) {
+    const targetLockedResponse = () => {
+      const targetLockout = targetKey ? checkIpLockout(targetKey) : { locked: false, remainingTime: 0 };
+      if (!targetLockout.locked) return null;
       return NextResponse.json<ApiResponse<null>>(
         {
           success: false,
@@ -57,7 +61,11 @@ export async function POST(req: NextRequest) {
         },
         { status: 429 }
       );
-    }
+    };
+
+    targetKey = getLoginTargetKey(requestBody);
+    const adminLocked = targetLockedResponse();
+    if (adminLocked) return adminLocked;
 
     if (!securityPin && !adminPassword) {
       return NextResponse.json<ApiResponse<null>>(
@@ -227,6 +235,12 @@ export async function POST(req: NextRequest) {
         { status: 500 }
       );
     }
+
+    // Per-family lockout, keyed by the family the PIN is checked against
+    // (with no slug that's the default family, same counter as its slug).
+    targetKey = familyTargetKey(settings.familyId);
+    const familyLocked = targetLockedResponse();
+    if (familyLocked) return familyLocked;
 
     // Count active caretakers (excluding system caretaker)
     const caretakerCount = await prisma.caretaker.count({
@@ -405,8 +419,9 @@ export async function POST(req: NextRequest) {
           loginId: loginId,
           inactive: false,
           deletedAt: null,
-          // If family slug is provided, ensure caretaker belongs to that family
-          ...(targetFamily ? { familyId: targetFamily.id } : {}),
+          // Only the resolved family's caretakers (with no slug, the default
+          // family), so the lookup matches the lockout key above.
+          ...(settings.familyId ? { familyId: settings.familyId } : {}),
         } as any, // Type assertion for loginId field
         include: {
           family: true, // Include family information

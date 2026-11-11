@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { getLoginTargetKey, TARGET_MAX_ATTEMPTS } from '@/app/api/utils/login-target';
+import { getLoginTargetKey, familyTargetKey, validateLoginBody, TARGET_MAX_ATTEMPTS } from '@/app/api/utils/login-target';
 import { checkIpLockout, recordFailedAttempt, resetFailedAttempts } from '@/app/api/utils/ip-lockout';
 import * as ipLockoutRoute from '@/app/api/auth/ip-lockout/route';
 
@@ -9,24 +9,38 @@ describe('getLoginTargetKey', () => {
     expect(getLoginTargetKey({ adminPassword: 'x', familySlug: 'smith' })).toBe('target:admin');
   });
 
-  it('keys PIN logins per family, ignoring loginId', () => {
-    expect(getLoginTargetKey({ familySlug: 'smith', securityPin: '1' })).toBe('target:family:smith');
-    expect(getLoginTargetKey({ familySlug: 'smith', loginId: '01' }))
-      .toBe(getLoginTargetKey({ familySlug: 'smith', loginId: '99' }));
+  it('returns null for PIN logins (keyed later by resolved family)', () => {
+    expect(getLoginTargetKey({ familySlug: 'smith', securityPin: '1' })).toBeNull();
+    expect(getLoginTargetKey({})).toBeNull();
+  });
+});
+
+describe('familyTargetKey', () => {
+  it('keys by family id, so slug and no-slug logins to one family share a counter', () => {
+    expect(familyTargetKey('fam-1')).toBe('target:family:fam-1');
   });
 
-  it('normalizes the slug so case/whitespace variants share a counter', () => {
-    expect(getLoginTargetKey({ familySlug: '  Smith ' })).toBe('target:family:smith');
-  });
-
-  it('falls back to a default key when the slug is missing or blank', () => {
-    expect(getLoginTargetKey({})).toBe('target:family:default');
-    expect(getLoginTargetKey({ familySlug: '' })).toBe('target:family:default');
-    expect(getLoginTargetKey({ familySlug: '   ' })).toBe('target:family:default');
+  it('falls back to a default key for legacy settings without a family', () => {
+    expect(familyTargetKey(null)).toBe('target:family:default');
+    expect(familyTargetKey(undefined)).toBe('target:family:default');
   });
 
   it('never produces a key that could collide with an IP', () => {
-    expect(getLoginTargetKey({ familySlug: '127.0.0.1' })).toMatch(/^target:/);
+    expect(familyTargetKey('127.0.0.1')).toMatch(/^target:/);
+  });
+});
+
+describe('validateLoginBody', () => {
+  it('accepts string or missing fields', () => {
+    expect(validateLoginBody({ familySlug: 'smith', securityPin: '123456' })).toBeNull();
+    expect(validateLoginBody({ adminPassword: 'x', loginId: null })).toBeNull();
+  });
+
+  it('rejects non-string fields and non-object bodies', () => {
+    expect(validateLoginBody({ familySlug: ['smith'] })).toMatch(/familySlug/);
+    expect(validateLoginBody({ securityPin: 123456 })).toMatch(/securityPin/);
+    expect(validateLoginBody(null)).not.toBeNull();
+    expect(validateLoginBody([])).not.toBeNull();
   });
 });
 

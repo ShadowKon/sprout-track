@@ -24,14 +24,28 @@ export interface LoginRequestBody {
   adminPassword?: string;
 }
 
+/** Returns an error message when a login field is present but not a string. */
+export function validateLoginBody(body: unknown): string | null {
+  if (!body || typeof body !== 'object' || Array.isArray(body)) return 'Invalid request body';
+  for (const field of ['loginId', 'securityPin', 'familySlug', 'adminPassword'] as const) {
+    const value = (body as Record<string, unknown>)[field];
+    if (value !== undefined && value !== null && typeof value !== 'string') {
+      return `${field} must be a string`;
+    }
+  }
+  return null;
+}
+
 /**
- * Return the lockout key for this login attempt, or null to skip
- * per-target counting.
+ * Lockout key known before any database lookup: only the sysadmin login.
+ * PIN logins are keyed by the family they resolve to (familyTargetKey), so a
+ * request can't dodge its family's counter by omitting or varying the slug.
  */
 export function getLoginTargetKey(body: LoginRequestBody): string | null {
-  if (body.adminPassword) {
-    return 'target:admin';
-  }
-  const slug = (body.familySlug || 'default').trim().toLowerCase() || 'default';
-  return `target:family:${slug}`;
+  return body.adminPassword ? 'target:admin' : null;
+}
+
+/** Lockout key for a PIN login, from the family the PIN is checked against. */
+export function familyTargetKey(familyId: string | null | undefined): string {
+  return `target:family:${familyId || 'default'}`;
 }
