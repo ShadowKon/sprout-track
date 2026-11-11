@@ -81,10 +81,15 @@ function addCronJob(crontab: string): string {
   }
   
   // In Docker, crond runs as root but the job runs unprivileged (CRON_RUN_AS=node).
+  // The log redirect is opened inside the unprivileged shell, so root never
+  // opens a path in the node-owned logs directory.
   const runAs = process.env.CRON_RUN_AS && /^[a-z_][a-z0-9_-]*$/.test(process.env.CRON_RUN_AS)
-    ? `su-exec ${process.env.CRON_RUN_AS} `
-    : '';
-  const cronLine = `${CRON_SCHEDULE} ${runAs}/bin/sh ${cronScriptPath} >> ${logPath} 2>&1`;
+    ? process.env.CRON_RUN_AS
+    : null;
+  const job = `/bin/sh ${cronScriptPath} >> ${logPath} 2>&1`;
+  const cronLine = runAs
+    ? `${CRON_SCHEDULE} su-exec ${runAs} /bin/sh -c '${job}'`
+    : `${CRON_SCHEDULE} ${job}`;
   
   // Add newline if crontab is not empty
   const separator = crontab.trim() ? '\n' : '';

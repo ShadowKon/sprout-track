@@ -62,6 +62,18 @@ load_env_file() {
     key="${line%%=*}"
     val="${line#*=}"
     case "$key" in ''|*[!A-Za-z0-9_]*) continue ;; esac
+    # Allowlist: only the app's own settings. The file is node-writable and is
+    # loaded into a root shell (crond, su-exec), so loader and interpreter
+    # variables (PATH, LD_*, NODE_OPTIONS, npm_config_*, ...) must never pass.
+    case "$key" in
+      DATABASE_PROVIDER|DATABASE_URL|LOG_DATABASE_URL|ENABLE_LOG|NODE_ENV|PORT|TZ|\
+      AUTH_LIFE|REFRESH_TOKEN_LIFE|IDLE_TIME|APP_VERSION|COOKIE_SECURE|ENC_HASH|JWT_SECRET|\
+      ENABLE_NOTIFICATIONS|NOTIFICATION_CRON_SECRET|APP_URL|ROOT_DOMAIN|DEPLOYMENT_MODE|\
+      ENABLE_ACCOUNTS|ALLOW_ACCOUNT_REGISTRATION|BETA|ADMIN_EMAIL|ACCOUNTS_EMAIL|\
+      NO_REPLY_EMAIL|PAYMENTS_EMAIL|ANDROID_CERT_SHA256|APPLE_TEAM_ID|\
+      NEXT_PUBLIC_*|STRIPE_*|APNS_*|FCM_*|VAPID_*|HOOKS_*|ST_GUARDIAN_*) ;;
+      *) continue ;;
+    esac
     case "$val" in
       \"*\") val="${val#\"}"; val="${val%\"}" ;;
       \'*\') val="${val#\'}"; val="${val%\'}" ;;

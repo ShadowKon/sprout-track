@@ -42,8 +42,21 @@ describe('docker non-root app process', () => {
     expect(startup).toContain('$AS_NODE npx prisma db seed');
   });
 
+  it('only lets allowlisted keys from the env file into the root shell', () => {
+    for (const script of [startup, cronScript]) {
+      const block = script.slice(script.indexOf('DATABASE_PROVIDER|DATABASE_URL'), script.indexOf(') ;;', script.indexOf('DATABASE_PROVIDER|DATABASE_URL')));
+      expect(block).toContain('NEXT_PUBLIC_*|STRIPE_*');
+      expect(block).not.toMatch(/\bPATH\b|LD_|NODE_OPTIONS|npm_config/i);
+      expect(script).toMatch(/\*\) continue ;;/);
+    }
+  });
+
+  it('opens the cron log inside the unprivileged shell', () => {
+    expect(cronSetup).toContain("su-exec ${runAs} /bin/sh -c '${job}'");
+  });
+
   it('runs the cron job as node while crond stays root', () => {
     expect(startup).toContain('export CRON_RUN_AS=node');
-    expect(cronSetup).toMatch(/su-exec \$\{process\.env\.CRON_RUN_AS\}/);
+    expect(cronSetup).toContain('process.env.CRON_RUN_AS');
   });
 });
