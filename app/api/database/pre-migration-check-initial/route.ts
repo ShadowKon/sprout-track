@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
 import { createPrismaAdapter } from '@/prisma/prisma-adapter';
 import { withAuthContext, ApiResponse, AuthResult } from '../../utils/auth';
+import { checkInitialFollowUp } from '../../utils/initial-setup-guard';
 
 // Target migration to check against
 const TARGET_MIGRATION = '20250807141402_add_feedback_model';
@@ -13,6 +14,11 @@ interface PreMigrationCheckResult {
 }
 
 async function checkHandler(req: NextRequest, authContext: AuthResult): Promise<NextResponse<ApiResponse<PreMigrationCheckResult>>> {
+
+  const denied = await checkInitialFollowUp(authContext);
+  if (denied) {
+    return NextResponse.json<ApiResponse<PreMigrationCheckResult>>({ success: false, error: denied }, { status: 403 });
+  }
   let tempPrisma: PrismaClient | null = null;
 
   try {

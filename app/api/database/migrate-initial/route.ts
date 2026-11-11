@@ -6,10 +6,16 @@ import { withAuthContext, ApiResponse, AuthResult } from '../../utils/auth';
 import { isPostgreSQL } from '../../utils/db-provider';
 import prisma, { reconnectPrisma } from '../../db';
 import { convertSolidsFeeds, summarizeConversion } from '../../../../scripts/convert-solids-feeds-runner';
+import { checkInitialFollowUp } from '../../utils/initial-setup-guard';
 
 const execAsync = promisify(exec);
 
 async function handler(request: NextRequest, authContext: AuthResult): Promise<NextResponse<ApiResponse<any>>> {
+
+  const denied = await checkInitialFollowUp(authContext);
+  if (denied) {
+    return NextResponse.json({ success: false, error: denied }, { status: 403 });
+  }
   try {
     console.log('Starting initial setup database migration...');
     

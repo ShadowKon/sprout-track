@@ -7,6 +7,7 @@ import { withAuthContext, ApiResponse, AuthResult } from '../../utils/auth';
 import { reloadEnvFile, ensureEnvDefaults, parseEnvFile, replaceEnvVar } from '../../utils/env-reload';
 import { isSQLite } from '../../utils/db-provider';
 import { importFromSQLiteFile, importFromJSON } from '../../utils/db-backup';
+import { checkInitialRestore, grantFollowUp } from '../../utils/initial-setup-guard';
 
 // Helper to ensure database is closed before operations
 async function disconnectPrisma() {
@@ -14,6 +15,12 @@ async function disconnectPrisma() {
 }
 
 async function handler(request: NextRequest, authContext: AuthResult): Promise<NextResponse<ApiResponse<any>>> {
+
+  const denied = await checkInitialRestore(authContext);
+  if (denied) {
+    return NextResponse.json({ success: false, error: denied }, { status: 403 });
+  }
+  grantFollowUp(authContext);
   try {
     console.log('Starting initial setup database restore...');
 
@@ -120,7 +127,8 @@ async function handler(request: NextRequest, authContext: AuthResult): Promise<N
               }
 
               // Backup existing .env
-              const envBackupPath = `${envPath}.backup-${dateStr}`;
+              // Next to the real env file (/app/env in Docker) so /app can stay root-owned
+              const envBackupPath = `${fs.realpathSync(envPath)}.backup-${dateStr}`;
               await fs.promises.copyFile(envPath, envBackupPath);
               console.log('✓ Existing .env backed up');
             }
