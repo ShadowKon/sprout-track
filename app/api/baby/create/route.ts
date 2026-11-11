@@ -5,6 +5,7 @@ import { ApiResponse, getAuthenticatedUser } from '@/app/api/utils/auth';
 import { checkWritePermission } from '@/app/api/utils/writeProtection';
 import { Baby, Gender } from '@prisma/client';
 import { isValidFeedTimerTypes } from '@/src/utils/feedTimerConfig';
+import { resolveFamilyScope } from '../../utils/family-scope';
 
 const CreateBabySchema = z.object({
   familyId: z.string(),
@@ -49,8 +50,20 @@ export async function POST(req: NextRequest): Promise<NextResponse<ApiResponse<B
       );
     }
 
-    const { familyId, ...babyData } = validation.data;
-    
+    const { familyId: requestedFamilyId, ...babyData } = validation.data;
+
+    // Never trust the client-sent familyId: scope to the caller's family
+    // (sysadmins may target any family), and only admins create babies here.
+    const isAdmin = authContext.caretakerRole === 'ADMIN' || authContext.caretakerRole === 'OWNER' || authContext.isSysAdmin;
+    if (!isAdmin) {
+      return NextResponse.json({ success: false, error: 'Only admins can create babies here' }, { status: 403 });
+    }
+    const scope = resolveFamilyScope(authContext, requestedFamilyId);
+    if (!scope.ok) {
+      return NextResponse.json({ success: false, error: scope.error }, { status: scope.status });
+    }
+    const familyId = scope.familyId;
+
     // Verify family exists
     const family = await prisma.family.findUnique({
         where: { id: familyId }
