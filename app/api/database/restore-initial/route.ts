@@ -20,7 +20,6 @@ async function handler(request: NextRequest, authContext: AuthResult): Promise<N
   if (denied) {
     return NextResponse.json({ success: false, error: denied }, { status: 403 });
   }
-  grantFollowUp(authContext);
   try {
     console.log('Starting initial setup database restore...');
 
@@ -154,6 +153,7 @@ async function handler(request: NextRequest, authContext: AuthResult): Promise<N
         // Reload environment variables into process.env
         reloadEnvFile(envPath);
 
+        grantFollowUp(authContext);
         return NextResponse.json<ApiResponse<null>>({
           success: true,
           data: null
@@ -195,6 +195,7 @@ async function handler(request: NextRequest, authContext: AuthResult): Promise<N
         ensureEnvDefaults(envPath);
         reloadEnvFile(envPath);
 
+        grantFollowUp(authContext);
         return NextResponse.json<ApiResponse<null>>({
           success: true,
           data: null

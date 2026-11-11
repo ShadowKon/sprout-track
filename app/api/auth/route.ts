@@ -25,9 +25,11 @@ export async function POST(req: NextRequest) {
     recordFailedAttempt(ip);
     if (targetKey) recordFailedAttempt(targetKey, TARGET_MAX_ATTEMPTS);
   };
+  // A success clears only the IP counter. The family counter expires on its
+  // own: clearing it would let a caretaker who knows their own PIN log in
+  // every few guesses and keep guessing someone else's.
   const resetLoginFailures = () => {
     resetFailedAttempts(ip);
-    if (targetKey) resetFailedAttempts(targetKey);
   };
 
   try {

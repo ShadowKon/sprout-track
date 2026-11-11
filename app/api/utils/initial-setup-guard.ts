@@ -56,7 +56,7 @@ function grantKey(auth: AuthResult): string | null {
   return auth.caretakerId ?? null;
 }
 
-/** Call after an allowed restore so the same caller can run the migration steps. */
+/** Call after a restore succeeds so the same caller can run the migration steps. */
 export function grantFollowUp(auth: AuthResult, now = Date.now()): void {
   const key = grantKey(auth);
   if (key) followUpGrants.set(key, now + FOLLOW_UP_WINDOW_MS);
@@ -72,6 +72,12 @@ export function hasFollowUpGrant(auth: AuthResult, now = Date.now()): boolean {
     return false;
   }
   return true;
+}
+
+/** Call once migrate-initial completes: the follow-up window is single-use. */
+export function clearFollowUp(auth: AuthResult): void {
+  const key = grantKey(auth);
+  if (key) followUpGrants.delete(key);
 }
 
 /** For pre-migration-check-initial and migrate-initial. */

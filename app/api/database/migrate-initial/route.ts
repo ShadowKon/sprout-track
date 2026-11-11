@@ -6,7 +6,7 @@ import { withAuthContext, ApiResponse, AuthResult } from '../../utils/auth';
 import { isPostgreSQL } from '../../utils/db-provider';
 import prisma, { reconnectPrisma } from '../../db';
 import { convertSolidsFeeds, summarizeConversion } from '../../../../scripts/convert-solids-feeds-runner';
-import { checkInitialFollowUp } from '../../utils/initial-setup-guard';
+import { checkInitialFollowUp, clearFollowUp } from '../../utils/initial-setup-guard';
 
 const execAsync = promisify(exec);
 
@@ -120,6 +120,7 @@ async function handler(request: NextRequest, authContext: AuthResult): Promise<N
     }
 
     console.log('🎉 Initial setup migration completed successfully!');
+    clearFollowUp(authContext);
 
     return NextResponse.json<ApiResponse<any>>({
       success: true,

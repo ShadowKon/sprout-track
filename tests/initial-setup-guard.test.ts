@@ -59,3 +59,14 @@ describe('follow-up grant after an allowed restore', () => {
     expect(hasFollowUpGrant(anon)).toBe(false);
   });
 });
+
+describe('clearFollowUp', () => {
+  it('ends the window once migrations complete', async () => {
+    const { clearFollowUp } = await import('@/app/api/utils/initial-setup-guard');
+    const caller = { authenticated: true, caretakerId: 'ct-clear', isSysAdmin: false } as AuthResult;
+    grantFollowUp(caller);
+    expect(hasFollowUpGrant(caller)).toBe(true);
+    clearFollowUp(caller);
+    expect(hasFollowUpGrant(caller)).toBe(false);
+  });
+});
